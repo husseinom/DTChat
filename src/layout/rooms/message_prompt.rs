@@ -53,22 +53,22 @@ pub fn manage_send(model: Arc<Mutex<ChatModel>>, msg: ChatMessage, receiver: Pee
         };
 
 
-        if network_config_ref {
+        if msg.pbat_enabled && network_config_ref {
             let model_lock = model.lock().unwrap();
             if let Some(config) = &model_lock.network_config {
                 let message_size = msg.text.len() as f64;
-                match config.route_with_ion_ids(&sender_ion_id, &receiver_ion_id, message_size) {
-                    Ok(true) => {
-                        println!("✅ Route found from {} to {}", sender_ion_id, receiver_ion_id);
+                let send_time = chrono::DateTime::from_timestamp(1, 0).unwrap(); // Time 0
+                match config.route_with_ion_ids(&sender_ion_id, &receiver_ion_id, message_size, send_time) {
+                    Some(delivery_time) => {
+                        println!("✅ Delivery time: {} seconds", delivery_time);
                     }
-                    Ok(false) => {
-                        println!("❌ No route found from {} to {}", sender_ion_id, receiver_ion_id);
-                    }
-                    Err(e) => {
-                        eprintln!("⚠️ Routing error: {}", e);
+                    None => {
+                        eprintln!("❌ No route found");
                     }
                 }
             }
+        } else if msg.pbat_enabled {
+            println!("⚠️ PBAT ENABLED but no network config available");
         }
 
         let socket = GenericSocket::new(&receiver.endpoints[0]);
@@ -127,6 +127,10 @@ impl MessagePrompt {
                 send_message = true;
                 response.request_focus();
             }
+
+            ui.checkbox(&mut app.message_panel.pbat_enabled, "PBAT");
+
+
             if ui
                 .add(
                     egui::Button::new("Send")
@@ -148,13 +152,15 @@ impl MessagePrompt {
                 let message_text = app.message_panel.message_to_send.clone();
                 let model_clone = app.model_arc.clone();
                 let receiver_clone = forging_receiver.clone();
+                let pbat_enabled = app.message_panel.pbat_enabled;
 
                 let msg = ChatMessage {
                     uuid: generate_uuid(),
                     response: None,
                     sender: model_clone.lock().unwrap().localpeer.clone(),
                     text: message_text.clone(),
-                    shipment_status: MessageStatus::Sent(Utc::now())
+                    shipment_status: MessageStatus::Sent(Utc::now()),
+                    pbat_enabled
                 };
                 TOKIO_RUNTIME.spawn_blocking(move || {
                     manage_send(model_clone, msg,receiver_clone);

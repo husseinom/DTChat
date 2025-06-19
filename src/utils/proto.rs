@@ -44,6 +44,7 @@ pub fn deserialize_message(buf: &[u8], peers: &[Peer]) -> Option<ChatMessage> {
                 sender: default_peer,
                 text: text.to_string(),
                 shipment_status: MessageStatus::Received(now, now),
+                pbat_enabled: false,
             });
         }
     }
@@ -65,6 +66,7 @@ pub fn create_message(text: &str, sender: Peer) -> ChatMessage {
         sender,
         text: text.to_string(),
         shipment_status: MessageStatus::Received(Utc::now(), Utc::now()),
+        pbat_enabled: false,
     }
 }
 
@@ -122,5 +124,6 @@ fn extract_message_from_proto(proto: dtchat::ChatMessage, peers: &[Peer]) -> Opt
         sender,
         text,
         shipment_status: MessageStatus::Received(tx_time, rx_time),
+        pbat_enabled: false,
     })
 }

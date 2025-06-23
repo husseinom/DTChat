@@ -46,6 +46,7 @@ fn main() -> Result<(), eframe::Error> {
         local_peer.clone(),
         shared_rooms.clone(),
         prediction_config
+        prediction_config
     );
 
     #[cfg(feature = "dev")]

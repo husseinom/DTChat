@@ -87,6 +87,7 @@ impl ChatModel {
             messages: Vec::new(),
             observers: Vec::new(),
             prediction_config
+            prediction_config
         }
     }
 

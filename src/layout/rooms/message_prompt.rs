@@ -4,10 +4,10 @@ use crate::app::{AppEvent, ChatApp, ChatModel, MessageDirection};
 use crate::utils::colors::COLORS;
 use crate::utils::config::Peer;
 use crate::utils::message::{ChatMessage, MessageStatus};
-use crate::utils::network_config::NetworkConfig;
+use crate::utils::prediction_config::PredictionConfig;
 use crate::utils::proto::generate_uuid;
 use crate::utils::socket::{Endpoint, GenericSocket, SendingSocket, TOKIO_RUNTIME};
-use chrono::Utc;
+use chrono::{Utc, DateTime, TimeZone};
 use eframe::egui;
 use egui::{vec2, CornerRadius, TextEdit};
 use libc::UTIME_NOW;
@@ -24,55 +24,25 @@ fn extract_ion_id_from_bp_address(bp_address: &str) -> String {
     bp_address.to_string()
 }
 
+fn f64_to_datetime(secs: f64) -> DateTime<Utc> {
+    let whole_secs = secs.trunc() as i64;
+    let nanos = ((secs.fract()) * 1e9) as u32;
+    Utc.timestamp_opt(whole_secs, nanos).unwrap()
+}
+
 
 pub struct MessagePrompt {}
 
 pub fn manage_send(model: Arc<Mutex<ChatModel>>, msg: ChatMessage, receiver: Peer) {
-    let network_config_ref = {
+    let prediction_config_ref = {
         let model_lock = model.lock().unwrap();
-        model_lock.network_config.is_some()
+        model_lock.prediction_config.is_some()
     };
 
-    if let Endpoint::Bp(_) = &receiver.endpoints[0] {
-        let sender_ion_id = {
-            let mut found_ion_id = None;
-            // Find BP endpoint in sender's endpoints
-            for endpoint in &msg.sender.endpoints {
-                if let Endpoint::Bp(bp_address) = endpoint {
-                    found_ion_id = Some(extract_ion_id_from_bp_address(bp_address));
-                    break;
-                }
-            }
-            // Use found ION ID or fallback to UUID
-            found_ion_id.unwrap_or_else(|| msg.sender.uuid.clone())
-        };
-        let receiver_ion_id = if let Endpoint::Bp(bp_address) = &receiver.endpoints[0] {
-            extract_ion_id_from_bp_address(bp_address)
-        } else {
-            receiver.uuid.clone()
-        };
-
-
-        if msg.pbat_enabled && network_config_ref {
-            let model_lock = model.lock().unwrap();
-            if let Some(config) = &model_lock.network_config {
-                let message_size = msg.text.len() as f64;
-                let send_time = chrono::DateTime::from_timestamp(1, 0).unwrap(); // Time 0
-                match config.route_with_ion_ids(&sender_ion_id, &receiver_ion_id, message_size, send_time) {
-                    Some(delivery_time) => {
-                        println!("✅ Delivery time: {} seconds", delivery_time);
-                    }
-                    None => {
-                        eprintln!("❌ No route found");
-                    }
-                }
-            }
-        } else if msg.pbat_enabled {
-            println!("⚠️ PBAT ENABLED but no network config available");
-        }
-
+    
         let socket = GenericSocket::new(&receiver.endpoints[0]);
 
+        
         match socket {
             Ok(mut socket) => match socket.send_message(&msg) {
                 Ok(_) => {
@@ -93,7 +63,7 @@ pub fn manage_send(model: Arc<Mutex<ChatModel>>, msg: ChatMessage, receiver: Pee
         }
 
 
-    }
+    
 }
 
 impl MessagePrompt {
@@ -153,14 +123,65 @@ impl MessagePrompt {
                 let model_clone = app.model_arc.clone();
                 let receiver_clone = forging_receiver.clone();
                 let pbat_enabled = app.message_panel.pbat_enabled;
-
+                 // here calculate pbat
+                let pbat_result = if pbat_enabled {
+            let model_lock = model_clone.lock().unwrap();
+            if let Some(config) = &model_lock.prediction_config {
+                // Extract ION IDs
+                let sender_ion_id = {
+                    let mut found_ion_id = None;
+                    for endpoint in &model_lock.localpeer.endpoints {
+                        if let Endpoint::Bp(bp_address) = endpoint {
+                            found_ion_id = Some(extract_ion_id_from_bp_address(bp_address));
+                            break;
+                        }
+                    }
+                    found_ion_id.unwrap_or_else(|| model_lock.localpeer.uuid.clone())
+                };
+                
+                let receiver_ion_id = if let Endpoint::Bp(bp_address) = &receiver_clone.endpoints[0] {
+                    extract_ion_id_from_bp_address(bp_address)
+                } else {
+                    receiver_clone.uuid.clone()
+                };
+                
+                // Calculate PBAT
+                let message_size = message_text.len() as f64;
+                match config.route_with_ion_ids(&sender_ion_id, &receiver_ion_id, message_size) {
+                    Ok(arrival_time_seconds) => {
+                        // let current_time = Utc::now();
+                        let predicted_arrival_time = f64_to_datetime(arrival_time_seconds);
+                        println!("📊 PBAT arrival time: {} ", predicted_arrival_time);
+                        // Show PBAT in UI immediately
+                        app.message_panel.send_status = Some(format!(
+                            "PBAT: Message will arrive in {} seconds at {}", 
+                            arrival_time_seconds, 
+                            predicted_arrival_time.format("%H:%M:%S")
+                        ));
+                        
+                        println!("📊 PBAT calculated: {} seconds", arrival_time_seconds);
+                        Some(predicted_arrival_time)
+                    }
+                    Err(e) => {
+                        // Show error in UI immediately
+                        app.message_panel.send_status = Some(format!("PBAT calculation failed: {}", e));
+                        eprintln!("❌ PBAT calculation failed: {}", e);
+                        None
+                    }
+                }
+            } else {
+                app.message_panel.send_status = Some("PBAT enabled but no prediction config available".to_string());
+                None
+            }
+        } else {
+            None
+        };
                 let msg = ChatMessage {
                     uuid: generate_uuid(),
                     response: None,
                     sender: model_clone.lock().unwrap().localpeer.clone(),
-                    text: message_text.clone(),
-                    shipment_status: MessageStatus::Sent(Utc::now()),
-                    pbat_enabled
+                    text:  app.message_panel.message_to_send.clone(),
+                    shipment_status: MessageStatus::Sent(Utc::now(), pbat_result),
                 };
                 TOKIO_RUNTIME.spawn_blocking(move || {
                     manage_send(model_clone, msg,receiver_clone);

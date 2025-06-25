@@ -99,11 +99,11 @@ impl PredictionConfig {
     }
 
 
-    pub fn route_with_ion_ids(&self, source_ion: &str, dest_ion: &str, message_size: f64) -> io::Result<Date> {
+    pub fn predict(&self, source_ion: &str, dest_ion: &str, message_size: f64) -> io::Result<Date> {
 
         println!("the data in the hashmap is : {:?}", self.ion_to_node_id.read().unwrap());
 
-        println!("🔍 Looking for route from '{}' to '{}'", source_ion, dest_ion);
+        println!(" Looking for route from '{}' to '{}'", source_ion, dest_ion);
 
         let source_node_id = self.get_node_id(source_ion).ok_or_else(|| {
             io::Error::new(
@@ -120,12 +120,12 @@ impl PredictionConfig {
         })?;
 
         if source_node_id == dest_node_id {
-            println!("⚠️  Source and destination are the same node ({}). Delivery time is 0.", source_node_id);
+            println!(" Source and destination are the same node ({}). Delivery time is 0.", source_node_id);
             return Ok(0.0);
         }
 
 
-        println!("✅ Found nodes: {} -> {}, {} -> {}", source_ion, source_node_id, dest_ion, dest_node_id);
+        println!("Found nodes: {} -> {}, {} -> {}", source_ion, source_node_id, dest_ion, dest_node_id);
 
         let bundle = Bundle {
             source: source_node_id,
@@ -137,22 +137,14 @@ impl PredictionConfig {
         
         let cp_send_time = Utc::now().timestamp() as f64 - self.cp_start_time; // Calculate relative send time from contact plan start
     
-        println!("🕐 Contact plan start time: {}", self.cp_start_time);
-        println!("🕐 Contact plan relative send time: {}", cp_send_time);
 
-        println!("🔍 Bundle: source={}, dest={:?}, size={}", 
-            bundle.source, bundle.destinations, bundle.size);
         let excluded_nodes = vec![];
 
         let mut router = self.router.lock().unwrap();
-        println!("🔍 Router locked successfully, calling route()...");
 
 
         match router.route(bundle.source, &bundle, cp_send_time, &excluded_nodes) {
             Some(routing_output) => {
-                println!("✅ Router returned Some(routing_output)!");
-                println!("🔍 Number of first_hops: {}", routing_output.first_hops.len());
-                println!("Route found from ION {} to ION {}!", source_ion, dest_ion);
                 // Only display the last element
                 if let Some((_contact_ptr, (_contact, route_stages))) = routing_output.first_hops.iter().last() {
                     if let Some(last_stage) = route_stages.last() {
@@ -160,7 +152,7 @@ impl PredictionConfig {
                         let last_stage_borrowed = last_stage.borrow();
     
                         if last_stage_borrowed.to_node != dest_node_id {
-                            println!("⚠️  WARNING: Route validation failed!");
+                            println!("  WARNING: Route validation failed!");
                             println!("   Expected destination: {} (ION {})", dest_node_id, dest_ion);
                             println!("   Last stage destination: {}", last_stage_borrowed.to_node);
         
@@ -170,14 +162,9 @@ impl PredictionConfig {
                                     last_stage_borrowed.to_node, dest_node_id)
                             ));
                         }
-    
-                        println!("✅ Route validation passed: last stage reaches destination node {} (ION {})", 
-                        dest_node_id, dest_ion);
 
                         let delay = last_stage_borrowed.at_time;
-                        println!("⏳ Delay for last stage: {}", delay);
                         let arrival_time = delay + self.cp_start_time;
-                        println!("📦 Arrival time: {}", arrival_time);
                         return Ok(arrival_time);
                     }
                 }

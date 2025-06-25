@@ -115,6 +115,8 @@ impl MessagePrompt {
         });
         if send_message && !app.message_panel.message_to_send.trim().is_empty() {
             let forging_receiver = app.message_panel.forging_receiver.clone();
+            println!("🔍 Attempting to send to: {}", forging_receiver.name);
+            println!("🔍 Receiver endpoints: {:?}", forging_receiver.endpoints);
             if forging_receiver.name == "local peer" {
                 app.message_panel.send_status =
                     Some("Cannot send message to local peer".to_string());
@@ -147,11 +149,11 @@ impl MessagePrompt {
                 
                 // Calculate PBAT
                 let message_size = message_text.len() as f64;
-                match config.route_with_ion_ids(&sender_ion_id, &receiver_ion_id, message_size) {
+                match config.predict(&sender_ion_id, &receiver_ion_id, message_size) {
                     Ok(arrival_time_seconds) => {
                         // let current_time = Utc::now();
                         let predicted_arrival_time = f64_to_datetime(arrival_time_seconds);
-                        println!("📊 PBAT arrival time: {} ", predicted_arrival_time);
+                        println!(" PBAT arrival time: {} ", predicted_arrival_time);
                         // Show PBAT in UI immediately
                         app.message_panel.send_status = Some(format!(
                             "PBAT: Message will arrive in {} seconds at {}", 
@@ -159,13 +161,13 @@ impl MessagePrompt {
                             predicted_arrival_time.format("%H:%M:%S")
                         ));
                         
-                        println!("📊 PBAT calculated: {} seconds", arrival_time_seconds);
+                        println!(" PBAT calculated: {} seconds", arrival_time_seconds);
                         Some(predicted_arrival_time)
                     }
                     Err(e) => {
                         // Show error in UI immediately
                         app.message_panel.send_status = Some(format!("PBAT calculation failed: {}", e));
-                        eprintln!("❌ PBAT calculation failed: {}", e);
+                        eprintln!(" PBAT calculation failed: {}", e);
                         None
                     }
                 }
@@ -180,7 +182,7 @@ impl MessagePrompt {
                     uuid: generate_uuid(),
                     response: None,
                     sender: model_clone.lock().unwrap().localpeer.clone(),
-                    text:  app.message_panel.message_to_send.clone(),
+                    text:  message_text,
                     shipment_status: MessageStatus::Sent(Utc::now(), pbat_result),
                 };
                 TOKIO_RUNTIME.spawn_blocking(move || {

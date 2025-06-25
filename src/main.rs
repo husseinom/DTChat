@@ -56,7 +56,6 @@ fn main() -> Result<(), eframe::Error> {
             sender: local_peer.clone(),
             text: "Hello from local peer".to_owned(),
             shipment_status: MessageStatus::Received(now, now + Duration::seconds(10)),
-            pbat_enabled: false,
         });
 
         now += Duration::seconds(2);
@@ -67,7 +66,6 @@ fn main() -> Result<(), eframe::Error> {
             sender: shared_peers[2].clone(),
             text: "Bob at your service !".to_owned(),
             shipment_status: MessageStatus::Received(now, now + Duration::seconds(30)),
-            pbat_enabled: false,
         });
 
         now += Duration::seconds(1);
@@ -78,7 +76,6 @@ fn main() -> Result<(), eframe::Error> {
             sender: shared_peers[0].clone(),
             text: "Hello local peer, how are you?".to_owned(),
             shipment_status: MessageStatus::Received(now, now + Duration::seconds(10)),
-            pbat_enabled: false,
         });
 
         now += Duration::seconds(2);
@@ -89,7 +86,6 @@ fn main() -> Result<(), eframe::Error> {
             sender: shared_peers[0].clone(),
             text: "I'm john does".to_owned(),
             shipment_status: MessageStatus::Received(now, now + Duration::seconds(10)),
-            pbat_enabled: false,
         });
 
         now += Duration::seconds(13);
@@ -100,7 +96,6 @@ fn main() -> Result<(), eframe::Error> {
             sender: local_peer.clone(),
             text: "Hello john doe, Some news from alice ?".to_owned(),
             shipment_status: MessageStatus::Received(now, now + Duration::seconds(10)),
-            pbat_enabled: false,
         });
 
         now += Duration::seconds(5);
@@ -111,7 +106,6 @@ fn main() -> Result<(), eframe::Error> {
             sender: shared_peers[1].clone(),
             text: "Sorry, I'm a bit late!".to_owned(),
             shipment_status: MessageStatus::Received(now, now + Duration::seconds(12)),
-            pbat_enabled: false,
         });
     }
 

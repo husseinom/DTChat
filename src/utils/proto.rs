@@ -122,6 +122,5 @@ fn extract_message_from_proto(proto: dtchat::ChatMessage, peers: &[Peer]) -> Opt
         sender,
         text,
         shipment_status: MessageStatus::Received(tx_time, rx_time),
-        pbat_enabled: false,
     })
 }

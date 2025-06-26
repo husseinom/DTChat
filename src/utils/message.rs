@@ -30,6 +30,7 @@ impl ChatMessage {
                     "[{}->{}][{}]",
                     tx.format("%H:%M:%S").to_string(),
                     pred_str,
+                    pred_str,
                     self.sender.name
                 )
             }

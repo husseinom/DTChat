@@ -113,6 +113,8 @@ impl MessagePrompt {
             let forging_receiver = app.message_panel.forging_receiver.clone();
             println!("🔍 Attempting to send to: {}", forging_receiver.name);
             println!("🔍 Receiver endpoints: {:?}", forging_receiver.endpoints);
+            println!("🔍 Attempting to send to: {}", forging_receiver.name);
+            println!("🔍 Receiver endpoints: {:?}", forging_receiver.endpoints);
             if forging_receiver.name == "local peer" {
                 app.message_panel.send_status =
                     Some("Cannot send message to local peer".to_string());
